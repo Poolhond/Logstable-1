@@ -2007,6 +2007,7 @@ function renderProductSheet(id){
 }
 
 function renderLogSheet(id){
+  // UI flatten refactor — no logic changes
   const log = state.logs.find(l => l.id === id);
   if (!log){ closeSheet(); return; }
   $("#sheetTitle").textContent = "Werklog";
@@ -2019,6 +2020,7 @@ function renderLogSheet(id){
   const visual = getLogVisualState(log);
   const statusPillClass = visual.state === "paid" ? "pill-paid" : visual.state === "calculated" ? "pill-calc" : visual.state === "linked" ? "pill-open" : "pill-neutral";
   const statusLabel = visual.state === "free" ? "vrij" : visual.state === "linked" ? "gekoppeld" : visual.state === "calculated" ? "berekend" : "betaald";
+  const detailAccentClass = visual.state === "paid" ? "accent-paid" : (visual.state === "linked" || visual.state === "calculated") ? "accent-open" : "accent-none";
   const isEditing = state.ui.editLogId === log.id;
 
   function renderSegments(currentLog, editing){
@@ -2031,22 +2033,17 @@ function renderLogSheet(id){
       .reduce((sum, s) => sum + getSegmentMinutes(s), 0);
 
     return `
-      <section class="compact-section stack">
-        <div class="row space">
+      <section class="section stack">
+        <div class="row space section-title-row">
           <div>
-            <div class="item-title">Totale werktijd</div>
+            <div class="section-title">Totale werktijd</div>
             <div class="small mono muted">Werk ${formatMinutesAsDuration(totalWorkMinutes)} • Pauze ${formatMinutesAsDuration(totalBreakMinutes)}</div>
           </div>
           <div class="rowtight">
-            <button class="iconbtn iconbtn-sm" id="toggleEditLog" type="button" title="${editing ? "Klaar" : "Bewerk"}" aria-label="${editing ? "Klaar" : "Bewerk"}">
-              ${editing
-                ? `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M5 12l5 5 9-9" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-                : `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9" stroke-linecap="round"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" stroke-linejoin="round"/></svg>`}
-            </button>
             ${editing ? `<button class="btn" id="addSegment" type="button">+ segment</button>` : ""}
           </div>
         </div>
-        <div class="compact-lines">
+        <div class="flat-list compact-lines">
           ${segments.map(s=>{
             const start = s.start ? fmtClock(s.start) : "…";
             const end = s.end ? fmtClock(s.end) : "…";
@@ -2086,35 +2083,56 @@ function renderLogSheet(id){
   }
 
   $("#sheetBody").innerHTML = `
-    <div class="stack log-detail-compact">
-      <section class="compact-section compact-row">
+    <div class="screen">
+      <div class="surface detail-surface stack accent-left ${detailAccentClass}">
+      <section class="section section-header">
+        <div class="row space section-title-row">
+          <div>
+            <div class="item-title">${esc(cname(log.customerId))}</div>
+            <div class="small">${esc(formatLogDatePretty(log.date))}</div>
+          </div>
+          <button class="iconbtn iconbtn-sm" id="toggleEditLog" type="button" title="${isEditing ? "Klaar" : "Bewerk"}" aria-label="${isEditing ? "Klaar" : "Bewerk"}">
+            ${isEditing
+              ? `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M5 12l5 5 9-9" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+              : `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9" stroke-linecap="round"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" stroke-linejoin="round"/></svg>`}
+          </button>
+        </div>
+      </section>
+
+      <section class="section total-block">
+        <div class="row space"><span>Totaal</span><strong class="money-strong">${fmtMoney(sumItemsAmount(log))}</strong></div>
+        <div class="small">Status: <span class="mono">${statusLabel}</span></div>
+      </section>
+
+      <section class="section compact-row">
         <label>Afrekening</label>
-        <select id="logSettlement" ${locked ? "disabled" : ""}>
+        <select id="logSettlement" class="field-underline" ${locked ? "disabled" : ""}>
           ${settlementOptions}
         </select>
       </section>
 
       ${renderSegments(log, isEditing)}
 
-      <section class="compact-section stack">
-        <div class="row space">
-          <div class="item-title">Producten</div>
+      <section class="section stack">
+        <div class="row space section-title-row">
+          <div class="section-title">Producten</div>
           <span class="small mono">Totaal ${fmtMoney(sumItemsAmount(log))}</span>
         </div>
-        <div class="log-lines-wrap">
+        <div class="log-lines-wrap flat-list">
           ${renderLogItems(log)}
         </div>
       </section>
 
-      <section class="compact-section">
-        <label>Notitie</label>
-        <input id="logNote" value="${esc(log.note||"")}" />
+      <section class="section">
+        <div class="section-title">Notitie</div>
+        <input id="logNote" class="field-underline" value="${esc(log.note||"")}" />
       </section>
 
-      <section class="compact-section log-detail-footer-actions">
+      <section class="section log-detail-footer-actions">
         <span class="pill ${statusPillClass}">${statusLabel}</span>
         <button class="btn danger" id="delLog">Verwijder</button>
       </section>
+      </div>
     </div>
   `;
 
@@ -2265,7 +2283,7 @@ function renderLogItems(log){
     return `
       <div class="log-item-row">
         <div class="log-item-row-top">
-          <select class="settlement-cell-input" data-edit-log-item="${it.id}" data-field="productId">
+          <select class="settlement-cell-input field-underline" data-edit-log-item="${it.id}" data-field="productId">
             ${productOptions.replace(`value="${productId}"`, `value="${productId}" selected`)}
           </select>
           <button class="iconbtn settlement-trash" data-del-log-item="${it.id}" title="Verwijder">
@@ -2273,14 +2291,8 @@ function renderLogItems(log){
           </button>
         </div>
         <div class="log-item-row-bottom">
-          <div class="log-item-cell">
-            <label>qty</label>
-            <input class="settlement-cell-input num" data-edit-log-item="${it.id}" data-field="qty" inputmode="decimal" value="${esc(qtyValue)}" />
-          </div>
-          <div class="log-item-cell">
-            <label>€/eenheid</label>
-            <input class="settlement-cell-input num" data-edit-log-item="${it.id}" data-field="unitPrice" inputmode="decimal" value="${esc(unitPriceValue)}" />
-          </div>
+          <input class="settlement-cell-input field-underline num" data-edit-log-item="${it.id}" data-field="qty" inputmode="decimal" value="${esc(qtyValue)}" placeholder="qty" />
+          <input class="settlement-cell-input field-underline num" data-edit-log-item="${it.id}" data-field="unitPrice" inputmode="decimal" value="${esc(unitPriceValue)}" placeholder="€/eenheid" />
           <div class="log-item-total num mono">${fmtMoney((Number(it.qty)||0)*(Number(it.unitPrice)||0))}</div>
         </div>
       </div>
@@ -2414,6 +2426,7 @@ function renderSettlementLogOverviewSheet(settlementId){
 }
 
 function renderSettlementSheet(id){
+  // UI flatten refactor — no logic changes
   const s = state.settlements.find(x => x.id === id);
   if (!s){ closeSheet(); return; }
   if (!("invoicePaid" in s)) s.invoicePaid = false;
@@ -2437,21 +2450,34 @@ function renderSettlementSheet(id){
 
   const pay = settlementPaymentState(s);
   const visual = getSettlementVisualState(s);
+  const detailAccentClass = visual.state === "paid" ? "accent-paid" : (visual.state === "draft" ? "accent-none" : "accent-open");
   const summary = settlementLogbookSummary(s);
 
   $('#sheetActions').innerHTML = '';
 
   $('#sheetBody').innerHTML = `
-    <div class="stack settlement-detail ${visual.accentClass}">
-      <div class="card stack compact-card">
-        <div class="settlement-status-bar" role="group" aria-label="Afrekening status acties">
-          ${renderSettlementStatusIcons(s)}
+    <div class="screen">
+      <div class="surface stack settlement-detail accent-left ${detailAccentClass}">
+      <section class="section section-header">
+        <div class="row space section-title-row">
+          <div>
+            <div class="item-title">${esc(cname(s.customerId))}</div>
+            <div class="small">${esc(formatDatePretty(s.date))}</div>
+          </div>
+          <div class="settlement-status-bar" role="group" aria-label="Afrekening status acties">
+            ${renderSettlementStatusIcons(s)}
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="card stack compact-card">
-        <div class="row space"><h2>Gekoppelde logs</h2>${isEdit ? `<button class="btn" id="btnRecalc">Herbereken uit logs</button>` : ""}</div>
-        <div class="list" id="sLogs">
+      <section class="section total-block">
+        <div class="row space"><span>Totaal</span><strong class="money-strong">${formatMoneyEUR(round2(pay.invoiceTotal + pay.cashTotal))}</strong></div>
+        <div class="small mono">Factuur ${formatMoneyEUR(pay.invoiceTotal)} • Cash ${formatMoneyEUR(pay.cashTotal)}</div>
+      </section>
+
+      <section class="section stack">
+        <div class="row space section-title-row"><h2 class="section-title">Gekoppelde logs</h2>${isEdit ? `<button class="btn text-button" id="btnRecalc">Herbereken uit logs</button>` : ""}</div>
+        <div class="list flat-list" id="sLogs">
           ${availableLogs.slice(0,30).map(l=>{
             const checked = (s.logIds||[]).includes(l.id);
             const rowMeta = `
@@ -2468,37 +2494,38 @@ function renderSettlementSheet(id){
             return `<button class="item item-compact item-row-button" type="button" role="button" data-open-linked-log="${l.id}"><div class="item-main">${rowMeta}</div></button>`;
           }).join('') || `<div class="small">Geen gekoppelde logs.</div>`}
         </div>
-      </div>
+      </section>
 
-      <div class="card stack compact-card">
-        <h2>Logboek totaal</h2>
+      <section class="section stack">
+        <h2 class="section-title">Logboek totaal</h2>
         ${isEdit ? `<div class="settlement-totals-row mono tabular"><span class="totals-time">${formatDurationCompact(Math.floor(summary.totalWorkMs/60000))}</span><span class="totals-price">${formatMoneyEUR(summary.totalLogPrice)}</span><span class="totals-products">${summary.linkedCount}</span></div>` : `<button class="settlement-totals-row settlement-totals-button mono tabular" id="openSettlementOverview" type="button"><span class="totals-time">${formatDurationCompact(Math.floor(summary.totalWorkMs/60000))}</span><span class="totals-price">${formatMoneyEUR(summary.totalLogPrice)}</span><span class="totals-products">${summary.linkedCount}</span></button>`}
-      </div>
+      </section>
 
-      <div class="card stack compact-card">
-        <div class="row space"><h2>Factuur</h2><div class="mono tabular">${formatMoneyEUR(pay.invoiceTotal)}</div></div>
+      <section class="section stack">
+        <div class="row space"><h2 class="section-title">Factuur</h2><div class="mono tabular">${formatMoneyEUR(pay.invoiceTotal)}</div></div>
         ${renderLinesTable(s, 'invoice', { readOnly: !isEdit })}
-        ${isEdit ? `<button class="btn" id="addInvoiceLine">+ regel</button>` : ""}
-      </div>
+        ${isEdit ? `<button class="btn text-button" id="addInvoiceLine">+ regel</button>` : ""}
+      </section>
 
-      <div class="card stack compact-card">
-        <div class="row space"><h2>Cash</h2><div class="mono tabular">${formatMoneyEUR(pay.cashTotal)}</div></div>
+      <section class="section stack">
+        <div class="row space"><h2 class="section-title">Cash</h2><div class="mono tabular">${formatMoneyEUR(pay.cashTotal)}</div></div>
         ${renderLinesTable(s, 'cash', { readOnly: !isEdit })}
-        ${isEdit ? `<button class="btn" id="addCashLine">+ regel</button>` : ""}
-      </div>
+        ${isEdit ? `<button class="btn text-button" id="addCashLine">+ regel</button>` : ""}
+      </section>
 
-      <div class="card stack compact-card">
-        <h2>Notitie</h2>
-        ${isEdit ? `<textarea id="sNote" rows="3">${esc(s.note||"")}</textarea>` : `<div class="small">${esc(s.note||"—")}</div>`}
-      </div>
+      <section class="section stack">
+        <h2 class="section-title">Notitie</h2>
+        ${isEdit ? `<textarea id="sNote" class="field-underline" rows="3">${esc(s.note||"")}</textarea>` : `<div class="small">${esc(s.note||"—")}</div>`}
+      </section>
 
       ${isEdit ? `
-      <div class="card stack compact-card">
-        <h2>Acties</h2>
-        <div class="compact-row"><label>Klant</label><div><select id="sCustomer">${customerOptions}</select></div></div>
-        <div class="compact-row"><label>Datum</label><div><input id="sDate" type="date" value="${esc(s.date||todayISO())}" /></div></div>
+      <section class="section stack">
+        <h2 class="section-title">Acties</h2>
+        <div class="compact-row"><label>Klant</label><div><select id="sCustomer" class="field-underline">${customerOptions}</select></div></div>
+        <div class="compact-row"><label>Datum</label><div><input id="sDate" class="field-underline" type="date" value="${esc(s.date||todayISO())}" /></div></div>
         <button class="btn danger" id="delSettlement">Verwijder</button>
-      </div>` : ""}
+      </section>` : ""}
+      </div>
     </div>
   `;
 
@@ -2667,10 +2694,10 @@ function renderLinesTable(settlement, bucket, { readOnly = false } = {}){
             <div>
               ${readOnly
                 ? `<div class="settlement-cell-readonly">${esc((getProduct(productValue)?.name) || l.name || l.description || '—')}</div>`
-                : `<select class="settlement-cell-input" data-line-product="${l.id}"><option value="">Kies product</option>${state.products.map(p=>`<option value="${p.id}" ${p.id===productValue?"selected":""}>${esc(p.name)}${p.unit ? ` (${esc(p.unit)})` : ''}</option>`).join('')}</select>`}
+                : `<select class="settlement-cell-input field-underline" data-line-product="${l.id}"><option value="">Kies product</option>${state.products.map(p=>`<option value="${p.id}" ${p.id===productValue?"selected":""}>${esc(p.name)}${p.unit ? ` (${esc(p.unit)})` : ''}</option>`).join('')}</select>`}
             </div>
-            <div>${readOnly ? `<div class="settlement-cell-readonly mono tabular">${esc((l.qty ?? '') === '' ? '—' : String(l.qty))}</div>` : `<input class="settlement-cell-input mono tabular" data-line-qty="${l.id}" inputmode="decimal" value="${esc((l.qty ?? '') === 0 ? '' : String(l.qty ?? ''))}" />`}</div>
-            <div>${readOnly ? `<div class="settlement-cell-readonly mono tabular">${formatMoneyEUR(Number(l.unitPrice)||0)}</div>` : `<input class="settlement-cell-input mono tabular" data-line-price="${l.id}" inputmode="decimal" value="${esc((l.unitPrice ?? '') === 0 ? '' : String(l.unitPrice ?? ''))}" />`}</div>
+            <div>${readOnly ? `<div class="settlement-cell-readonly mono tabular">${esc((l.qty ?? '') === '' ? '—' : String(l.qty))}</div>` : `<input class="settlement-cell-input field-underline mono tabular" data-line-qty="${l.id}" inputmode="decimal" value="${esc((l.qty ?? '') === 0 ? '' : String(l.qty ?? ''))}" />`}</div>
+            <div>${readOnly ? `<div class="settlement-cell-readonly mono tabular">${formatMoneyEUR(Number(l.unitPrice)||0)}</div>` : `<input class="settlement-cell-input field-underline mono tabular" data-line-price="${l.id}" inputmode="decimal" value="${esc((l.unitPrice ?? '') === 0 ? '' : String(l.unitPrice ?? ''))}" />`}</div>
             <div class="num mono tabular">${formatMoneyEUR(rowTotal)}</div>
             <div>${readOnly ? '' : `<button class="iconbtn settlement-trash" data-line-del="${l.id}" title="Verwijder"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18" stroke-linecap="round"/><path d="M8 6V4h8v2"/><path d="M6 6l1 16h10l1-16"/><path d="M10 11v6M14 11v6" stroke-linecap="round"/></svg></button>`}</div>
           </div>
