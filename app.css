@@ -184,6 +184,8 @@ body{
 .money-strong{ font-size:var(--font-amount); font-weight:var(--weight-semibold); letter-spacing:.01em; }
 .total-block .row{ margin-bottom:4px; }
 .text-button{ background:transparent; border:0; color:var(--muted); padding:0; min-height:30px; justify-content:flex-start; }
+.danger-text{ color:#de8f8f; }
+.danger-text:hover{ color:#f0aaaa; }
 
 .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:var(--row-padding, 0); }
 .rowTitle{ font-size:var(--font-body); font-weight:var(--weight-regular); color:var(--text); }
@@ -248,16 +250,11 @@ body{
   height:18px;
 }
 
-.status-icon-chip.is-open{
-  color:#ff9a3d;
-  border-color:rgba(255,154,61,.55);
-  background:rgba(255,154,61,.10);
-}
-
+.status-icon-chip.is-open,
 .status-icon-chip.is-paid{
-  color:#3ac483;
-  border-color:rgba(58,196,131,.55);
-  background:rgba(58,196,131,.10);
+  color:var(--muted);
+  border-color:var(--border);
+  background:transparent;
 }
 
 @media (max-width: 420px){
@@ -764,6 +761,11 @@ label{ display:block; font-size:12px; color:var(--muted); margin: 0 0 6px 0; }
   padding-bottom:2px;
 }
 
+.note-flat{
+  min-height:72px;
+  resize:vertical;
+}
+
 .log-detail-footer-actions .btn{
   min-height:36px;
 }
@@ -973,10 +975,16 @@ label{ display:block; font-size:12px; color:var(--muted); margin: 0 0 6px 0; }
   margin-top:4px;
   border-top:1px solid var(--border);
   padding-top:6px;
-  display:grid;
-  grid-template-columns: minmax(0, 1fr) 72px 88px minmax(68px, auto) 40px;
-  gap:6px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
   font-size:12px;
+}
+
+.footer-line{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
 }
 
 .settlement-line-actions{
