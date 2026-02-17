@@ -533,25 +533,28 @@ function isLogLinkedElsewhere(logId, currentSettlementId){
 function getWorkLogStatus(logId){
   return logStatus(logId);
 }
+function rowAccentClassFromStatus(status){
+  if (status === "paid") return "accentLeftPaid";
+  if (status === "linked" || status === "calculated" || status === "open") return "accentLeftOpen";
+  return "";
+}
 function renderLogCard(log){
   const st = getWorkLogStatus(log.id);
-  const cls = statusClassFromStatus(st);
+  const accentClass = rowAccentClassFromStatus(st);
   const startTime = getStartTime(log);
   const workDuration = getTotalWorkDuration(log);
   const extraProducts = countExtraProducts(log);
-  const extraLabel = extraProducts > 0 ? `<span>+${extraProducts}</span>` : "";
+  const extraLabel = extraProducts > 0 ? ` • +${extraProducts} producten` : "";
   const amount = sumItemsAmount(log);
 
   return `
-    <div class="item ${cls}" data-open-log="${log.id}">
-      <div class="item-main">
-        <div class="item-title">${esc(cname(log.customerId))}</div>
-        <div class="meta-text" style="margin-top:2px;">
-          <span>${esc(formatLogDatePretty(log.date))}</span> · <span>Start ${esc(startTime)}</span> · <span>${esc(workDuration)}</span>${extraLabel ? ` · ${extraLabel}` : ""}
-        </div>
+    <button class="row rowListItem ${accentClass}" type="button" data-open-log="${log.id}">
+      <div class="rowTop">
+        <div class="rowTitle">${esc(cname(log.customerId))}</div>
+        <div class="moneyStrong">${fmtMoney(amount)}</div>
       </div>
-      ${amount > 0 ? `<div class="amount-prominent">${fmtMoney(amount)}</div>` : ""}
-    </div>
+      <div class="rowMeta">${esc(formatLogDatePretty(log.date))} • Start ${esc(startTime)} • ${esc(workDuration)}${extraLabel}</div>
+    </button>
   `;
 }
 
@@ -1268,7 +1271,7 @@ function renderLogs(){
   const list = sections.some(section => section.logs.length)
     ? sections.map(section => `
       ${section.header ? `<div class="log-group-header">${esc(section.header)}</div>` : ""}
-      ${section.logs.map(renderLogCard).join("")}
+      ${section.logs.map((log, index) => `${renderLogCard(log)}${index < section.logs.length - 1 ? `<div class="divider"></div>` : ""}`).join("")}
     `).join("")
     : `<div class="meta-text" style="padding:8px 4px;">Geen logs voor deze filter.</div>`;
 
@@ -1544,9 +1547,11 @@ function _attachSettingsHandlers(){
 
 function renderSettlements(){
   const el = $("#tab-settlements");
-  const list = [...state.settlements].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).map(s=>{
+  const settlements = [...state.settlements].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const list = settlements.map((s, index)=>{
     const pay = settlementPaymentState(s);
     const visual = getSettlementVisualState(s);
+    const accentClass = rowAccentClassFromStatus(visual.state);
     const linkedLogs = (s.logIds||[])
       .map(id => state.logs.find(l => l.id === id))
       .filter(Boolean);
@@ -1554,15 +1559,14 @@ function renderSettlements(){
     const grand = round2(pay.invoiceTotal + pay.cashTotal);
 
     return `
-      <div class="item ${visual.accentClass}" data-open-settlement="${s.id}">
-        <div class="item-main">
-          <div class="item-title">${esc(cname(s.customerId))}</div>
-          <div class="meta-text" style="margin-top:2px;">
-            ${esc(formatDatePretty(s.date))} · ${(s.logIds||[]).length} logs · ${formatDurationCompact(totalMinutes)}
-          </div>
+      <button class="row rowListItem ${accentClass}" type="button" data-open-settlement="${s.id}">
+        <div class="rowTop">
+          <div class="rowTitle">${esc(cname(s.customerId))}</div>
+          <div class="moneyStrong">${formatMoneyEUR(grand)}</div>
         </div>
-        <div class="amount-prominent">${formatMoneyEUR(grand)}</div>
-      </div>
+        <div class="rowMeta">${esc(formatDatePretty(s.date))} • ${(s.logIds||[]).length} logs • ${formatDurationCompact(totalMinutes)}</div>
+      </button>
+      ${index < settlements.length - 1 ? `<div class="divider"></div>` : ""}
     `;
   }).join("");
 
@@ -2452,6 +2456,23 @@ function renderSettlementSheet(id){
   const visual = getSettlementVisualState(s);
   const detailAccentClass = visual.state === "paid" ? "accent-paid" : (visual.state === "draft" ? "accent-none" : "accent-open");
   const summary = settlementLogbookSummary(s);
+  const linkedLogsForList = isEdit
+    ? availableLogs.slice(0, 30)
+    : availableLogs.filter(l => (s.logIds || []).includes(l.id)).slice(0, 30);
+  const linkedLogsMarkup = linkedLogsForList.map((l, index) => {
+    const checked = (s.logIds || []).includes(l.id);
+    const status = getWorkLogStatus(l.id);
+    const accentClass = rowAccentClassFromStatus(status);
+    const amount = sumItemsAmount(l);
+    const topLine = `<div class="rowTop"><div class="rowTitle">${esc(cname(l.customerId))}</div><div class="moneyStrong">${formatMoneyEUR(amount)}</div></div>`;
+    const meta = `${esc(formatDatePretty(l.date))} • Start ${esc(getStartTime(l))} • ${formatDurationCompact(Math.floor(sumWorkMs(l) / 60000))} • +${countExtraProducts(l)} producten`;
+
+    if (isEdit){
+      return `<label class="row rowListItem ${accentClass} settlementLogPickRow"><div class="settlementLogPickMain">${topLine}<div class="rowMeta">${meta}</div></div><input type="checkbox" data-logpick="${l.id}" ${checked ? "checked" : ""}/></label>${index < linkedLogsForList.length - 1 ? `<div class="divider"></div>` : ""}`;
+    }
+
+    return `<button class="row rowListItem ${accentClass}" type="button" role="button" data-open-linked-log="${l.id}">${topLine}<div class="rowMeta">${meta}</div></button>${index < linkedLogsForList.length - 1 ? `<div class="divider"></div>` : ""}`;
+  }).join('');
 
   $('#sheetActions').innerHTML = '';
 
@@ -2478,21 +2499,7 @@ function renderSettlementSheet(id){
       <section class="section stack">
         <div class="row space section-title-row"><h2 class="section-title">Gekoppelde logs</h2>${isEdit ? `<button class="btn text-button" id="btnRecalc">Herbereken uit logs</button>` : ""}</div>
         <div class="list flat-list" id="sLogs">
-          ${availableLogs.slice(0,30).map(l=>{
-            const checked = (s.logIds||[]).includes(l.id);
-            const rowMeta = `
-              <div class="item-sub settlement-log-cols mono tabular">
-                <span class="log-col-date">${esc(formatDatePretty(l.date))}</span>
-                <span class="log-col-time">${formatDurationCompact(Math.floor(sumWorkMs(l)/60000))}</span>
-                <span class="log-col-price">${formatMoneyEUR(sumItemsAmount(l))}</span>
-                <span class="log-col-products">${countExtraProducts(l)}</span>
-              </div>`;
-            if (isEdit){
-              return `<label class="item item-compact"><div class="item-main">${rowMeta}</div><div class="item-right"><input type="checkbox" data-logpick="${l.id}" ${checked ? "checked" : ""}/></div></label>`;
-            }
-            if (!checked) return "";
-            return `<button class="item item-compact item-row-button" type="button" role="button" data-open-linked-log="${l.id}"><div class="item-main">${rowMeta}</div></button>`;
-          }).join('') || `<div class="small">Geen gekoppelde logs.</div>`}
+          ${linkedLogsMarkup || `<div class="small">Geen gekoppelde logs.</div>`}
         </div>
       </section>
 
