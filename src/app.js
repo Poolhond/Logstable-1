@@ -396,7 +396,6 @@ let state = stateModule.loadState();
 
 const sumWorkMs = compute.sumWorkMs;
 const lineAmount = compute.lineAmount;
-const lineVat = compute.lineVat;
 const bucketTotals = compute.bucketTotals;
 const getSettlementTotals = compute.getSettlementTotals;
 const isSettlementCalculated = compute.isSettlementCalculated;
@@ -964,7 +963,7 @@ function renderTopbar(){
 }
 
 function setTab(key){
-  ui.navStack = [{ view: key }];
+  ui.navStack.splice(0, ui.navStack.length, { view: key });
   ui.transition = null;
   render();
 }

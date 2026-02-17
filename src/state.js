@@ -1,4 +1,4 @@
-import { pad2, round2, fmtClock } from "./utils/format.js";
+import { round2 } from "./utils/format.js";
 
 export const STORAGE_KEY = "tuinlog_mvp_v1";
 
@@ -6,16 +6,6 @@ const uid = () => Math.random().toString(16).slice(2) + "-" + Math.random().toSt
 const now = () => Date.now();
 const todayISO = () => new Date().toISOString().slice(0,10);
 
-function fmtTimeInput(ms){ return Number.isFinite(ms) ? fmtClock(ms) : ""; }
-function getSegmentMinutes(segment){
-  const start = fmtTimeInput(segment?.start);
-  const end = fmtTimeInput(segment?.end);
-  if (!start || !end) return 0;
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  if (![sh, sm, eh, em].every(Number.isFinite)) return 0;
-  return Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
-}
 export function syncSettlementAmounts(settlement){
   const lines = settlement?.lines || [];
   const byBucket = (bucket) => lines.filter(l=>l.bucket===bucket).reduce((a,l)=>a+((Number(l.qty)||0)*(Number(l.unitPrice)||0)),0);
